@@ -15,17 +15,18 @@ from django.db import router
 from django.db.models import ForeignKey, ManyToManyField
 from django.db.models.deletion import Collector
 from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import render_to_response
+from django.shortcuts import render_to_response, render
 from django.template.context import RequestContext
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
-from .api import (export_as_csv as _export_as_csv,
-                  export_as_xls as _export_as_xls,)
-from .exceptions import ActionInterrupted
-from .forms import CSVOptions, XLSOptions
-from .models import get_permission_codename
-from .signals import adminaction_end, adminaction_requested, adminaction_start
+from adminactions.api import (export_as_csv as _export_as_csv,
+                              export_as_xls as _export_as_xls,)
+from adminactions.exceptions import ActionInterrupted
+from adminactions.forms import CSVOptions, XLSOptions
+from adminactions.models import get_permission_codename
+from adminactions.signals import (adminaction_end, adminaction_requested,
+                                  adminaction_start,)
 
 
 def get_action(request):
@@ -57,8 +58,7 @@ def base_export(modeladmin, request, queryset, title, impl,  # noqa
         messages.error(request, str(e))
         return
 
-    cols = [(f.name, f.verbose_name) for f in queryset.model._meta.fields +
-            queryset.model._meta.many_to_many]
+    cols = [(f.name, f.verbose_name) for f in queryset.model._meta.fields]
     initial = {'_selected_action': request.POST.getlist(helpers.ACTION_CHECKBOX_NAME),
                'select_across': request.POST.get('select_across') == '1',
                'action': get_action(request),
@@ -122,8 +122,14 @@ def base_export(modeladmin, request, queryset, title, impl,  # noqa
            'opts': queryset.model._meta,
            'app_label': queryset.model._meta.app_label,
            'media': mark_safe(media)}
-    ctx.update(modeladmin.admin_site.each_context(request))
-    return render_to_response(template, RequestContext(request, ctx))
+    if django.VERSION[:2] > (1, 7):
+        ctx.update(modeladmin.admin_site.each_context(request))
+    else:
+        ctx.update(modeladmin.admin_site.each_context())
+    if django.VERSION[:2] > (1, 9):
+        return render(request, template, ctx)
+    else:
+        return render_to_response(template, RequestContext(request, ctx))
 
 
 def export_as_csv(modeladmin, request, queryset):
@@ -313,8 +319,14 @@ def export_as_fixture(modeladmin, request, queryset):
            'opts': queryset.model._meta,
            'app_label': queryset.model._meta.app_label,
            'media': mark_safe(media)}
-    ctx.update(modeladmin.admin_site.each_context(request))
-    return render_to_response(tpl, RequestContext(request, ctx))
+    if django.VERSION[:2] > (1, 7):
+        ctx.update(modeladmin.admin_site.each_context(request))
+    else:
+        ctx.update(modeladmin.admin_site.each_context())
+    if django.VERSION[:2] > (1, 9):
+        return render(request, tpl, ctx)
+    else:
+        return render_to_response(tpl, RequestContext(request, ctx))
 
 
 export_as_fixture.short_description = _("Export as fixture")
@@ -405,8 +417,14 @@ def export_delete_tree(modeladmin, request, queryset):  # noqa
            'opts': queryset.model._meta,
            'app_label': queryset.model._meta.app_label,
            'media': mark_safe(media)}
-    ctx.update(modeladmin.admin_site.each_context(request))
-    return render_to_response(tpl, RequestContext(request, ctx))
+    if django.VERSION[:2] > (1, 7):
+        ctx.update(modeladmin.admin_site.each_context(request))
+    else:
+        ctx.update(modeladmin.admin_site.each_context())
+    if django.VERSION[:2] > (1, 9):
+        return render(request, tpl, ctx)
+    else:
+        return render_to_response(tpl, RequestContext(request, ctx))
 
 
 export_delete_tree.short_description = _("Export delete tree")
